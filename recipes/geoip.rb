@@ -1,8 +1,8 @@
 #
 # Cookbook Name:: chef-magento
-# Recipe:: config_local
+# Recipe:: geoip
 #
-# Copyright 2012, Alistair Stead
+# Copyright 2013, Marco Lopes
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,4 @@
 # limitations under the License.
 #
 
-if node['magento']['capistrano']['enabled'] == true
-    config_path = "#{node['magento']['apache']['docroot']}/#{node['magento']['apache']['servername']}/shared/#{node['magento']['app']['base_path']}"
-else
-    config_path = node['magento']['dir']
-end
-
-template "#{config_path}/app/etc/local.xml" do
-  source "local.xml.erb"
-  mode 0644
-  variables({
-    :magento => node['magento']
-  })
-end
+node['varnish']['cookies'].push('geoip');

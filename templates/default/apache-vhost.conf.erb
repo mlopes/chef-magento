@@ -1,17 +1,50 @@
 <% if @params[:ssl] %>
-<VirtualHost *:<%= @params[:magento]['apache']['secure_port'] %>>
+<VirtualHost <%= @params[:site]['secure_ip'] || '*' %>:<%= @params[:magento]['apache']['secure_port'] %>>
   SSLEngine on
-  SSLCertificateKeyFile ssl/magento.key
-  SSLCertificateFile ssl/magento.pem
-  SSLProtocol all
-  SSLCipherSuite ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP:+eNULL
+  SSLHonorCipherOrder on
 
+  SSLCertificateKeyFile <%= @params[:site]['ssl']['keyfile'] %>
+  SSLCertificateFile <%= @params[:site]['ssl']['certfile'] %>
+  <% if defined?(@params[:site]['ssl']['cacertfile']) and !@params[:site]['ssl']['cacertfile'].nil? %>
+  SSLCACertificateFile <%= @params[:site]['ssl']['cacertfile'] %>
+  <% end %>
+  <% if defined?(@params[:site]['ssl']['certchainfile']) and !@params[:site]['ssl']['certchainfile'].nil? %>
+  SSLCertificateChainFile <%= @params[:site]['ssl']['certchainfile'] %>
+  <% end %>
+  <% if defined?(@params[:site]['ssl']['verify_client']) and !@params[:site]['ssl']['verify_client'].nil? %>
+  SSLVerifyClient <%= @params[:site]['ssl']['verify_client'] %>
+  <% end %>
+
+  <% if defined?(@params[:site]['ssl']['options']) and !@params[:site]['ssl']['options'].nil? %>
+    SSLOptions <% @params[:site]['ssl']['options'].each do |a| %><%= a %> <% end %>
+  <% else %>
+    SSLOptions <% @params[:magento]['apache']['ssl']['options'].each do |a| %><%= a %> <% end %>
+  <% end %>
+
+  <% if defined?(@params[:site]['ssl']['session_cache_timeout']) and !@params[:site]['ssl']['session_cache_timeout'].nil? %>
+      SSLSessionCacheTimeout <%= @params[:site]['ssl']['session_cache_timeout'] %>
+    <% else %>
+      SSLSessionCacheTimeout <%= @params[:magento]['apache']['ssl']['session_cache_timeout'] %>
+    <% end %>
+
+    <% if defined?(@params[:site]['ssl']['protocols']) and !@params[:site]['ssl']['protocols'].nil? %>
+      SSLProtocol <% @params[:site]['ssl']['protocols'].each do |a| %><%= a %> <% end %>
+    <% else %>
+      SSLProtocol <% @params[:magento]['apache']['ssl']['protocols'].each do |a| %><%= a %> <% end %>
+    <% end %>
+    <% if defined?(@params[:site]['ssl']['ciphersuite']) and !@params[:site]['ssl']['ciphersuite'].nil? %>
+      SSLCipherSuite <%= @params[:site]['ssl']['ciphersuite'] %>
+    <% else %>
+      SSLCipherSuite <%= @params[:magento]['apache']['ssl']['ciphersuite'] %>
+    <% end %>
 <% else %>
-<VirtualHost *:<%= @params[:magento]['apache']['unsecure_port'] %>>
+  <VirtualHost *:<%= @params[:magento]['apache']['unsecure_port'] %>>
 <% end %>
 
   ServerName <%= @params[:site][:servername] %>
+  <% if defined?(@params[:site][:server_alias]) and !@params[:site][:server_alias].nil? %>
   ServerAlias <% @params[:site][:server_alias].each do |a| %><%= a %> <% end %>
+  <% end %>
 
   DocumentRoot <%= @params[:magento]['dir'] %>
 
@@ -20,6 +53,8 @@
   CustomLog <%= @params[:apache]['log_dir'] %>/<%= @params[:site][:servername] %>-access.log combined
 
   ServerSignature Off
+
+  TraceEnable <%= @params[:site]['traceEnable'] %>
 
 <% if @params[:site]['developer_mode'] %>
   SetEnv MAGE_IS_DEVELOPER_MODE true
@@ -35,12 +70,15 @@
 
   <Directory <%= @params[:magento]['dir'] %>>
     Options FollowSymLinks
+    <% if @params[:ssl] %>
+    SSLRequireSSL
+    <% end %>
 
     EnableMMAP <%= @params[:magento]['apache']['enable_mmap'] %>
     EnableSendfile <%= @params[:magento]['apache']['enable_sendfile'] %>
 
     <% if @params[:apache]['basic_username'] %>
-    AuthUserFile <%= @params[:magento]['dir'] %>/.htpasswd
+        AuthUserFile <% if @params[:apache]['htpasswd'] %><%= @params[:apache]['htpasswd'] %><% else %><%= @params[:magento]['dir'] %>/.htpasswd<% end %>
         AuthType Basic
         AuthName "Protected System"
         Require valid-user
@@ -49,8 +87,40 @@
     ## Apache optimisation by disabling the .htaccess parsing
     ## Directives for securing directorys have been added to this file
     AllowOverride None
+
     Order allow,deny
-    Allow from all
+    <% if @params[:magento][:ip_whitelist][:enabled] %>
+        <% _useProxyEnvCheck = !@params[:ssl] and !node[:varnish].nil? %>
+
+        <% if _useProxyEnvCheck %>
+            # Allow Varnish health probe
+            SetEnvIf Request_URI "^/LICENSE.txt$" proxy_env
+        <% end %>
+
+        # Allow access from IPs
+        <% @params[:magento][:ip_whitelist][:ips].each do |ip| %>
+            <% if _useProxyEnvCheck %>
+                SetEnvIf X-Forwarded-For ^<%= Regexp.escape(ip) %>$ proxy_env
+            <% else %>
+                Allow from <%= ip %>
+            <% end %>
+        <% end %>
+
+        <% if @params[:magento][:ip_whitelist][:allow_domains].size > 0 %>
+            # Allow access for certain domains
+            <% @params[:magento][:ip_whitelist][:allow_domains].each do |domain| %>
+                SetEnvIf Host ^<%= Regexp.escape(domain) %>$ pass_through_domain
+            <% end %>
+            Allow from env=pass_through_domain
+        <% end %>
+
+        Satisfy Any
+        <% if _useProxyEnvCheck %>
+            Allow from env=proxy_env
+        <% end %>
+    <% else %>
+        Allow from all
+    <% end %>
 
     ############################################
     ## uncomment these lines for CGI mode
@@ -222,6 +292,10 @@
     </IfModule>
 
     AddType application/x-font-woff woff
+    AddType application/vnd.ms-fontobject eot
+    AddType font/ttf ttf
+    AddType font/otf otf
+
 
     <IfModule mod_expires.c>
         ExpiresActive on
@@ -249,6 +323,11 @@
         <FilesMatch "\.(ico|jpe?g|png|gif|swf|css|gz|js|woff)$">
             Header set Cache-Control  "public, max-age=2592000"
         </FilesMatch>
+        <FilesMatch "\.(ttf|otf|eot|woff)$">
+            # Setting this to asterisk since due to redirection issues we don't
+            # have a reliable way to determine the origin domain.
+            Header set Access-Control-Allow-Origin "*"
+        </FilesMatch>
     </IfModule>
 
     ############################################
@@ -257,12 +336,6 @@
 
     AddDefaultCharset Off
     #AddDefaultCharset UTF-8
-
-    ############################################
-    ## By default allow all access
-
-    Order allow,deny
-    Allow from all
 
     ############################################
     ## If running in cluster environment, uncomment this

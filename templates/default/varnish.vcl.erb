@@ -3,6 +3,14 @@
 include "/etc/varnish/geoip.vcl";
 <% end %>
 
+<% if @magento[:ip_whitelist][:enabled] %>
+    acl ip_whitelist {
+    <% @magento[:ip_whitelist][:ips].each do |ip| %>
+        "<%= ip %>";
+    <% end %>
+    }
+<% end %>
+
 # Create a health check to verify that the backend server is responding
 # correctly and in a timely manner.
 probe healthcheck {
@@ -49,6 +57,16 @@ acl purge {
 }
 
 sub vcl_recv {
+    <% if @magento[:ip_whitelist][:enabled] %>
+        if (client.ip !~ ip_whitelist) {
+            if (!req.http.Authorization && !req.http.Authenticate) {
+                # instead of returning 403 immediately,
+                # pipe it to apache for requesting authorisation
+                # error 403 "Forbidden";
+                return (pass);
+            }
+        }
+    <% end %>
     set req.backend = backend_director;
 
     if (req.restarts == 0) {
@@ -59,7 +77,7 @@ sub vcl_recv {
             set req.http.X-Forwarded-For = client.ip;
         }
         <% if node['varnish']['GeoIP_enabled'] %>
-        if (req.url !~ "\.(jpeg|jpg|png|gif|ico|swf|js|css|gz|rar|txt|bzip|pdf)(\?.*|)$") {
+        if ((req.url !~ "\?(.*&)*(geoip=off)") && (req.url !~ "\.(jpeg|jpg|png|gif|ico|swf|js|css|gz|rar|txt|bzip|pdf)(\?.*|)$")) {
             C{
                 vcl_geoip_country_set_header(sp);
             }C
@@ -88,9 +106,12 @@ sub vcl_recv {
         req.request != "DELETE") {
             return (pipe);
     }
-
-    if (req.url ~ "^/(index.php/)?(<%= @magento['app']['admin_frontname'] %>|api|directory)" || req.url ~ "\?(.*&)*(___store=|SID=[a-zA-Z0-9]{16,})" || req.http.Cookie ~ "adminhtml") {
+    if (req.url ~ "^/(index.php/)?(<%= @magento['app']['admin_frontname'] %>|api/|directory/)" || req.url ~ "\?(.*&)*(___store=|SID=[a-zA-Z0-9]{16,})" || req.http.Cookie ~ "adminhtml") {
+        <% if @magento[:ip_whitelist][:enabled] %>
+            return (pass);
+        <% else %>
             return (pipe);
+        <% end %>
     }
 
     if (req.backend.healthy) {
@@ -221,6 +242,11 @@ sub vcl_hash {
     <% if node['varnish']['GeoIP_enabled'] %>
     hash_data(req.http.X-Geo-IP-Country);
     <% end %>
+
+    <% if @magento[:ip_whitelist][:enabled] %>
+        hash_data(req.http.Authorization);
+        hash_data(req.http.Authenticate);
+    <% end %>
     return (hash);
 }
 
@@ -228,7 +254,13 @@ sub vcl_hash {
 sub vcl_fetch {
     # Homogenize the User-Agent vary
     if (beresp.http.Vary ~ "User-Agent") {
-        set beresp.http.X-Vary = regsub(beresp.http.Vary, ",?\s?User-Agent,?", "\1");
+        set beresp.http.Vary = regsub(beresp.http.Vary, "User-Agent,?\s*", "\1");
+        set beresp.http.Vary = regsub(beresp.http.Vary, ",\s*$", "");
+        if (beresp.http.Vary == "") {
+            remove beresp.http.Vary;
+        } else {
+            set beresp.http.X-Vary = beresp.http.Vary;
+        }
     }
 
     # the site is in the maintenance mode
@@ -293,6 +325,11 @@ sub vcl_fetch {
         remove beresp.http.Pragma;
 
         set beresp.http.X-Cacheable = "YES";
+        <% if node['varnish']['GeoIP_enabled'] %>
+        if (req.http.Cookie !~ "(^|;)geoip=") {
+            set beresp.http.Set-Cookie = "geoip=1; path=/";
+        }
+        <% end %>
     }
 
     return (deliver);
@@ -300,10 +337,6 @@ sub vcl_fetch {
 
 # Called after a cached document is delivered to the client.
 sub vcl_deliver {
-    unset resp.http.Vary;
-    if (resp.http.X-Vary) {
-        set resp.http.Vary = resp.http.X-Vary;
-    }
     # Set a cache header to allow us to inspect the response
     # headers during testing
     if (resp.http.X-Cache-Debug ~ "debug") {

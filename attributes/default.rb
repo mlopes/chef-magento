@@ -1,6 +1,7 @@
 # General settings
 default['magento']['dir'] = "/var/www/magento.development.local/public"
 
+default['magento']['app']['base_path'] = "public/"
 default['magento']['app']['locale'] = "en_GB"
 default['magento']['app']['timezone'] = "Europe/London"
 default['magento']['app']['currency'] = "GBP"
@@ -15,6 +16,7 @@ default['magento']['app']['session_memcache_port'] = "11211"
 default['magento']['app']['backend_cache'] = "file" # apc|memcached|xcache|file|Cm_Cache_Backend_Redis
 default['magento']['app']['slow_backend'] = "database" # database|file
 default['magento']['app']['backend_servers'] = Array.new
+default['magento']['app']['skip_updates'] = false
 
 
 default['magento']['redis']['host'] = '127.0.0.1'
@@ -40,6 +42,28 @@ default['magento']['apache']['developer_mode'] = false
 default['magento']['apache']['additional_rewites'] = ""
 default['magento']['apache']['enable_mmap'] = "On"
 default['magento']['apache']['enable_sendfile'] = "On"
+default['magento']['apache']['ssl']['keyfile'] = "ssl/magento.key"
+default['magento']['apache']['ssl']['certfile'] = "ssl/magento.pem"
+default['magento']['apache']['ssl']['protocols'] = [
+    "-SSLv3", "TLSv1"
+]
+default['magento']['apache']['ssl']['options'] = [
+	"+StrictRequire"
+]
+
+default['magento']['apache']['ssl']['ciphersuite'] = "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH
++3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS;"
+
+default['magento']['apache']['ssl']['session_cache_timeout'] = 300
+
+default['magento']['apache']['traceEnable'] = "off"
+
+default['magento']['cronjob']['minute'] = "*/5"
+
+default['magento']['cronjob']['minute'] = "*/5"
+default['magento']['cronjob']['hour'] = "*"
+default['magento']['cronjob']['name'] = "magento-crontab"
+default['magento']['cronjob']['user'] = "root"
 
 default['magento']['sites'] = Array.new
 
@@ -60,7 +84,7 @@ default['magento']['admin']['lastname'] = "Admin"
 default['magento']['admin']['email'] = "chef@magento.com"
 default['magento']['admin']['user'] = "chef"
 default['magento']['admin']['password'] = '123123pass'
-default['varnish']['cookies'] = ['currency', 'store', 'geoip']
+default['varnish']['cookies'] = ['currency', 'store']
 
 default['magento']['varnish']['backend_servers'] = [
     {
@@ -73,6 +97,19 @@ default['magento']['varnish']['trusted_servers'] = [
 ]
 default['magento']['varnish']['ttl_for_static_files'] = '30d'
 
+# IP whitelisting for Magento stores for test-environments
+#
+# Enable and configure IPs to restrict access to only those IPs. Works in
+# conjunction with default[:apache][:htpasswd], so that either can be used to
+# grant access.
+#
+# Allow_domains lists (sub)domains that can be accessed regardless of IP
+# restrictions. This can be used to serve static content via CDNs when IP
+# restrictions are in place.
+default['magento']['ip_whitelist']['enabled'] = false
+default['magento']['ip_whitelist']['ips'] = Array.new
+default['magento']['ip_whitelist']['allow_domains'] = Array.new
+
 # Custom XML Snippet
 default['magento']['global']['custom'] = ''
 
@@ -82,6 +119,16 @@ default['magento']['server']['aliases'] = Array.new
 default['magento']['server']['static_domains'] = Array.new
 
 default['extra_hostnames'] = Array.new
+default['hosts']['entries'] = Array.new
+
+# Capistrano setup
+default['magento']['capistrano']['enabled'] = false
+default['magento']['capistrano']["app_shared_dirs"] = ["/app/etc", "/sitemaps", "/media", "/var", "/staging"]
+default['magento']['capistrano']["app_shared_files"] = ["/app/etc/local.xml"]
+default['magento']['capistrano']["nfs_path"] = false
+default['magento']['capistrano']["nfs_symlinks"] = ["/media", "/staging", "/sitemaps", "/var/locks"]
+default['magento']['capistrano']["deploy_owner"] = "deploy"
+default['magento']['capistrano']["deploy_group"] = "deploy"
 
 ::Chef::Node.send(:include, Opscode::OpenSSL::Password)
 
