@@ -1,6 +1,8 @@
 <% if @params[:ssl] %>
 <VirtualHost <%= @params[:site]['secure_ip'] || '*' %>:<%= @params[:magento]['apache']['secure_port'] %>>
   SSLEngine on
+  SSLHonorCipherOrder on
+
   SSLCertificateKeyFile <%= @params[:site]['ssl']['keyfile'] %>
   SSLCertificateFile <%= @params[:site]['ssl']['certfile'] %>
   <% if defined?(@params[:site]['ssl']['cacertfile']) and !@params[:site]['ssl']['cacertfile'].nil? %>
@@ -9,6 +11,22 @@
   <% if defined?(@params[:site]['ssl']['certchainfile']) and !@params[:site]['ssl']['certchainfile'].nil? %>
   SSLCertificateChainFile <%= @params[:site]['ssl']['certchainfile'] %>
   <% end %>
+  <% if defined?(@params[:site]['ssl']['verify_client']) and !@params[:site]['ssl']['verify_client'].nil? %>
+  SSLVerifyClient <%= @params[:site]['ssl']['verify_client'] %>
+  <% end %>
+
+  <% if defined?(@params[:site]['ssl']['options']) and !@params[:site]['ssl']['options'].nil? %>
+    SSLOptions <% @params[:site]['ssl']['options'].each do |a| %><%= a %> <% end %>
+  <% else %>
+    SSLOptions <% @params[:magento]['apache']['ssl']['options'].each do |a| %><%= a %> <% end %>
+  <% end %>
+
+  <% if defined?(@params[:site]['ssl']['session_cache_timeout']) and !@params[:site]['ssl']['session_cache_timeout'].nil? %>
+      SSLSessionCacheTimeout <%= @params[:site]['ssl']['session_cache_timeout'] %>
+    <% else %>
+      SSLSessionCacheTimeout <%= @params[:magento]['apache']['ssl']['session_cache_timeout'] %>
+    <% end %>
+
     <% if defined?(@params[:site]['ssl']['protocols']) and !@params[:site]['ssl']['protocols'].nil? %>
       SSLProtocol <% @params[:site]['ssl']['protocols'].each do |a| %><%= a %> <% end %>
     <% else %>
@@ -52,6 +70,9 @@
 
   <Directory <%= @params[:magento]['dir'] %>>
     Options FollowSymLinks
+    <% if @params[:ssl] %>
+    SSLRequireSSL
+    <% end %>
 
     EnableMMAP <%= @params[:magento]['apache']['enable_mmap'] %>
     EnableSendfile <%= @params[:magento]['apache']['enable_sendfile'] %>
