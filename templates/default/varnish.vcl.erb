@@ -253,6 +253,13 @@ sub vcl_hash {
         hash_data(req.http.Authorization);
         hash_data(req.http.Authenticate);
     <% end %>
+
+    <% if @magento['varnish']['additional_hash_subs'] %>
+        <% @magento['varnish']['additional_hash_subs'].each do |hash_sub| %>
+            <%= hash_sub %>();
+        <% end %>
+    <% end %>
+    
     return (hash);
 }
 
