@@ -45,10 +45,16 @@ default['magento']['apache']['enable_sendfile'] = "On"
 default['magento']['apache']['ssl']['keyfile'] = "ssl/magento.key"
 default['magento']['apache']['ssl']['certfile'] = "ssl/magento.pem"
 default['magento']['apache']['ssl']['protocols'] = [
-    "TLSv1", "TLSv1.1", "TLSv1.2"
+    "-All", "TLSv1"
 ]
+default['magento']['apache']['ssl']['options'] = [
+	"+StrictRequire"
+]
+
 default['magento']['apache']['ssl']['ciphersuite'] = "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH
 +3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS;"
+
+default['magento']['apache']['ssl']['session_cache_timeout'] = 300
 
 default['magento']['apache']['traceEnable'] = "off"
 
