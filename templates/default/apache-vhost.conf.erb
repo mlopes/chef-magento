@@ -9,8 +9,16 @@
   <% if defined?(@params[:site]['ssl']['certchainfile']) and !@params[:site]['ssl']['certchainfile'].nil? %>
   SSLCertificateChainFile <%= @params[:site]['ssl']['certchainfile'] %>
   <% end %>
-  SSLProtocol <% @params[:site]['ssl']['protocols'].each do |a| %><%= a %> <% end %>
-  SSLCipherSuite <%= @params[:site]['ssl']['ciphersuite'] %>
+    <% if defined?(@params[:site]['ssl']['protocols']) and !@params[:site]['ssl']['protocols'].nil? %>
+      SSLProtocol <% @params[:site]['ssl']['protocols'].each do |a| %><%= a %> <% end %>
+    <% else %>
+      SSLProtocol <% @params[:magento]['apache']['ssl']['protocols'].each do |a| %><%= a %> <% end %>
+    <% end %>
+    <% if defined?(@params[:site]['ssl']['ciphersuite']) and !@params[:site]['ssl']['ciphersuite'].nil? %>
+      SSLCipherSuite <%= @params[:site]['ssl']['ciphersuite'] %>
+    <% else %>
+      SSLCipherSuite <%= @params[:magento]['apache']['ssl']['ciphersuite'] %>
+    <% end %>
 <% else %>
   <VirtualHost *:<%= @params[:magento]['apache']['unsecure_port'] %>>
 <% end %>
