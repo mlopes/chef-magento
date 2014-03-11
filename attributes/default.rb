@@ -97,6 +97,9 @@ default['magento']['varnish']['trusted_servers'] = [
 ]
 default['magento']['varnish']['ttl_for_static_files'] = '30d'
 
+default['magento']['varnish']['additional_vcls'] = []
+default['magento']['varnish']['additional_hash_subs'] = []
+
 # IP whitelisting for Magento stores for test-environments
 #
 # Enable and configure IPs to restrict access to only those IPs. Works in

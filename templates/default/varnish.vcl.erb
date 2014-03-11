@@ -3,6 +3,12 @@
 include "/etc/varnish/geoip.vcl";
 <% end %>
 
+<% if @magento['varnish']['additional_vcls'] %>
+    <% @magento['varnish']['additional_vcls'].each do |vcl| %>
+        include "etc/varnish/<%= vcl %>";
+    <% end %>
+<% end %>
+
 <% if @magento[:ip_whitelist][:enabled] %>
     acl ip_whitelist {
     <% @magento[:ip_whitelist][:ips].each do |ip| %>
@@ -247,6 +253,13 @@ sub vcl_hash {
         hash_data(req.http.Authorization);
         hash_data(req.http.Authenticate);
     <% end %>
+
+    <% if @magento['varnish']['additional_hash_subs'] %>
+        <% @magento['varnish']['additional_hash_subs'].each do |hash_sub| %>
+            <%= hash_sub %>();
+        <% end %>
+    <% end %>
+    
     return (hash);
 }
 
