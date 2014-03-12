@@ -256,7 +256,7 @@ sub vcl_hash {
 
     <% if @magento['varnish']['additional_hash_subs'] %>
         <% @magento['varnish']['additional_hash_subs'].each do |hash_sub| %>
-            <%= hash_sub %>();
+            call <%= hash_sub %>;
         <% end %>
     <% end %>
     
