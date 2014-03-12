@@ -54,7 +54,11 @@
 
   ServerSignature Off
 
-  TraceEnable <%= @params[:site]['traceEnable'] %>
+  <% if defined?(@params[:site]['traceEnable']) and !@params[:site]['traceEnable'].nil? %>
+    TraceEnable <%= @params[:site]['traceEnable'] %>
+  <% else %>
+    TraceEnable <%= @params[:magento]['apache']['traceEnable'] %>
+  <% end %>
 
 <% if @params[:site]['developer_mode'] %>
   SetEnv MAGE_IS_DEVELOPER_MODE true
