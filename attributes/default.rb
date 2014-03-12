@@ -46,7 +46,7 @@ default['magento']['apache']['parse_htaccess'] = false
 default['magento']['apache']['ssl']['keyfile'] = "ssl/magento.key"
 default['magento']['apache']['ssl']['certfile'] = "ssl/magento.pem"
 default['magento']['apache']['ssl']['protocols'] = [
-    "-SSLv3", "TLSv1"
+    "-All", "TLSv1"
 ]
 default['magento']['apache']['ssl']['options'] = [
 	"+StrictRequire"
